@@ -1,13 +1,11 @@
 package pt.lsts.neptus.plugins.server;
 
 import com.google.common.eventbus.Subscribe;
+import pt.lsts.imc.EntityList;
 import pt.lsts.imc.IMCDefinition;
-import pt.lsts.imc.IMCOutputStream;
-import pt.lsts.imc.IMCInputStream;
 import pt.lsts.imc.IMCMessage;
 import pt.lsts.imc.StateReport;
 import pt.lsts.imc.VerticalProfile;
-
 import pt.lsts.neptus.NeptusLog;
 import pt.lsts.neptus.console.ConsoleLayout;
 import pt.lsts.neptus.console.ConsolePanel;
@@ -16,9 +14,6 @@ import pt.lsts.neptus.plugins.Popup;
 
 import javax.swing.*;
 import java.awt.*;
-import java.io.*;
-import java.net.Socket;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author João Bogas
@@ -27,18 +22,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Popup(pos = Popup.POSITION.CENTER, width = 250, height = 250, accelerator = 'Y')
 public class ServerInterface extends ConsolePanel {
 
-    private final AtomicBoolean running = new AtomicBoolean(false);
-    private Socket socket;
-    private IMCInputStream in;
-    private DataOutputStream out;
-    private ByteArrayOutputStream bout;
-    private IMCOutputStream imcOut;
-    private Thread readThread;
+    private final ImcTcpClient client = new ImcTcpClient(IMCDefinition.getInstance());
     private JTextArea statusLabel;
-
     private JTextField ipField;
     private JTextField portField;
-
 
     public ServerInterface(ConsoleLayout console) {
         super(console);
@@ -91,7 +78,7 @@ public class ServerInterface extends ConsolePanel {
         gbc.gridy++;
         add(new JLabel("Port:"), gbc);
         gbc.gridx = 1;
-        portField = new JTextField("6767", 5);
+        portField = new JTextField("6005", 5);
         add(portField, gbc);
 
         gbc.gridx = 0;
@@ -126,8 +113,6 @@ public class ServerInterface extends ConsolePanel {
 
         revalidate();
         repaint();
-
-        //! Connection Fails - Form collapses
     }
 
     /**
@@ -150,10 +135,6 @@ public class ServerInterface extends ConsolePanel {
         gbc.gridx = 0;
         JButton getInstructionsButton = new JButton("Get Instructions");
         getInstructionsButton.addActionListener(e -> {
-            if (out == null) {
-                return;
-            }
-
             StateReport stateReport = new StateReport();
             sendMessage(stateReport);
         });
@@ -169,26 +150,27 @@ public class ServerInterface extends ConsolePanel {
         });
         add(stopButton, gbc);
 
-
         revalidate();
         repaint();
     }
 
     private void connectToServer(String serverIp, int serverPort) {
         try {
-            socket = new Socket(serverIp, serverPort);
-            out = new DataOutputStream(socket.getOutputStream());
-            in = new IMCInputStream(socket.getInputStream(), IMCDefinition.getInstance());
+            client.addListener(new ImcTcpClient.MessageListener() {
+                @Override
+                public void onMessage(IMCMessage msg, String remote) {
+                    handleIncoming(msg, remote);
+                }
 
-            bout = new ByteArrayOutputStream();
-            imcOut = new IMCOutputStream(bout);
+                @Override
+                public void onDisconnect(String remote, Exception e) {
+                    serverDisconnected(remote, e);
+                }
+            });
+
+            client.connect(serverIp, serverPort, 100);
 
             SwingUtilities.invokeLater(() -> showConnectedPanel(serverIp, serverPort));
-
-            // Start a background thread to read incoming messages
-            running.set(true);
-            readThread = new Thread(this::readFromServer);
-            readThread.start();
         }
         catch (Exception e) {
             SwingUtilities.invokeLater(() -> statusLabel.setText("Connection failed: " + e.getMessage()));
@@ -196,75 +178,31 @@ public class ServerInterface extends ConsolePanel {
         }
     }
 
-    private void readFromServer() {
-
-        NeptusLog.pub().info("Reading from server ...");
-        while (running.get()) {
-            readerMain();
-        }
-
-        SwingUtilities.invokeLater(this::showConnectionForm);
-    }
-
     private void sendMessage(IMCMessage msg) {
         try {
             NeptusLog.pub().info("Sending message: {}", msg);
-            imcOut.writeMessage(msg);
-            bout.flush();
-            out.write(bout.toByteArray());
-            out.flush();
+
+            client.send(msg);
         }
         catch (Exception e) {
             NeptusLog.pub().warn("Failed to send message: {}", e.getMessage());
         }
     }
 
-    private void readerMain() {
-        try {
-            IMCMessage incomingMsg = in.readMessage();
-            if (incomingMsg == null) {
-                NeptusLog.pub().warn("Could not read from server");
-                running.set(false);
-                return;
-            }
-
-            // Example: show message in UI
-            SwingUtilities.invokeLater(() -> statusLabel.setText("Received: " + incomingMsg.getAbbrev()));
-            handleIncoming(incomingMsg);
-        }
-        catch (IOException e) {
-            NeptusLog.pub().warn("Error: {}", e.getMessage());
-            running.set(false);
-        }
+    private void handleIncoming(IMCMessage msg, String remote) {
+        NeptusLog.pub().info("Received message: {} from {}", msg.getAbbrev(), remote);
     }
 
-    private void handleIncoming(IMCMessage msg) {
-        NeptusLog.pub().info("Received message: {}", msg.getAbbrev());
-        StateReport stateReport = new StateReport();
-        sendMessage(stateReport);
+    public void serverDisconnected(String remote, Exception cause) {
+        NeptusLog.pub().debug("Disconnected from {}: {}", remote, cause.getMessage());
+
+        SwingUtilities.invokeLater(this::showConnectionForm);
     }
 
     @Override
     public void cleanSubPanel() {
-
         NeptusLog.pub().warn("Closing connection form");
-        try {
-            // Force socket to close so thread does not block
-            if (socket != null && !socket.isClosed()) {
-                socket.close();
-            }
-
-            running.set(false);
-            if (readThread != null && readThread.isAlive()) {
-                readThread.interrupt();
-            }
-            if (in != null) {
-                in.close();
-            }
-        }
-        catch (IOException e) {
-            System.err.println("Error closing socket: " + e.getMessage());
-        }
+        client.close();
     }
 }
 
