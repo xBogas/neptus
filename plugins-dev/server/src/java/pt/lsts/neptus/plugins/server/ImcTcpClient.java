@@ -1,6 +1,5 @@
 package pt.lsts.neptus.plugins.server;
 
-import jdk.internal.org.jline.reader.EndOfFileException;
 import pt.lsts.imc.IMCDefinition;
 import pt.lsts.imc.IMCInputStream;
 import pt.lsts.imc.IMCMessage;
@@ -98,6 +97,7 @@ public class ImcTcpClient {
                     }
                 }
             }
+            cause = new IOException("Connection lost");
         }
         catch (IOException e) {
             cause = e;
@@ -121,6 +121,7 @@ public class ImcTcpClient {
         for (MessageListener l : listeners) {
             try {
                 l.onDisconnect(remoteHost, cause);
+                removeListener(l);
             }
             catch (Throwable e) {
                 NeptusLog.pub().warn("Listener failed to disconnect {}", e.toString());
@@ -163,18 +164,6 @@ public class ImcTcpClient {
         close(imcIn);
         close(bufferedOut);
         close(socket);
-
-        Exception cause = new EndOfFileException("Closing socket!");
-        for (MessageListener l : listeners) {
-            try {
-                l.onDisconnect(remoteHost, cause);
-            }
-            catch (Exception ignored) {
-
-            }
-
-            removeListener(l);
-        }
     }
 
     public interface MessageListener {
