@@ -27,6 +27,10 @@ public class ServerInterface extends ConsolePanel {
     private JTextField ipField;
     private JTextField portField;
 
+    private String lastHost = "10.147.20.10";
+    private int lastPort = 6005;
+
+
     public ServerInterface(ConsoleLayout console) {
         super(console);
     }
@@ -71,14 +75,14 @@ public class ServerInterface extends ConsolePanel {
         gbc.gridy = 0;
         add(new JLabel("Server IP:"), gbc);
         gbc.gridx = 1;
-        ipField = new JTextField("127.0.0.1", 10);
+        ipField = new JTextField(lastHost, 10);
         add(ipField, gbc);
 
         gbc.gridx = 0;
         gbc.gridy++;
         add(new JLabel("Port:"), gbc);
         gbc.gridx = 1;
-        portField = new JTextField("6005", 5);
+        portField = new JTextField(String.valueOf(lastPort), 5);
         add(portField, gbc);
 
         gbc.gridx = 0;
@@ -169,6 +173,9 @@ public class ServerInterface extends ConsolePanel {
             });
 
             client.connect(serverIp, serverPort, 100);
+
+            lastHost = serverIp;
+            lastPort = serverPort;
 
             SwingUtilities.invokeLater(() -> showConnectedPanel(serverIp, serverPort));
         }
