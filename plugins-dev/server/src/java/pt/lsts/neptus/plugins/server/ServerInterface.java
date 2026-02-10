@@ -1,12 +1,14 @@
 package pt.lsts.neptus.plugins.server;
 
 import com.google.common.eventbus.Subscribe;
-import pt.lsts.imc.EntityList;
 import pt.lsts.imc.IMCDefinition;
 import pt.lsts.imc.IMCMessage;
+import pt.lsts.imc.PlanSpecification;
 import pt.lsts.imc.StateReport;
 import pt.lsts.imc.VerticalProfile;
 import pt.lsts.neptus.NeptusLog;
+import pt.lsts.neptus.comm.manager.imc.ImcSystem;
+import pt.lsts.neptus.comm.manager.imc.ImcSystemsHolder;
 import pt.lsts.neptus.console.ConsoleLayout;
 import pt.lsts.neptus.console.ConsolePanel;
 import pt.lsts.neptus.plugins.PluginDescription;
@@ -14,6 +16,10 @@ import pt.lsts.neptus.plugins.Popup;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author João Bogas
@@ -24,27 +30,39 @@ public class ServerInterface extends ConsolePanel {
 
     private final ImcTcpClient client = new ImcTcpClient(IMCDefinition.getInstance());
     private JTextArea statusLabel;
+    private JTextArea systemsListArea;
     private JTextField ipField;
     private JTextField portField;
 
     private String lastHost = "10.147.20.10";
     private int lastPort = 6005;
 
+    private Map<Integer, String> systems = new HashMap<>();
 
     public ServerInterface(ConsoleLayout console) {
         super(console);
     }
 
+    private boolean invalidSystem(int src) {
+        return !systems.containsKey(src);
+    }
+
     @Subscribe
     public void onStateReport(StateReport msg) {
-        NeptusLog.pub().info("Reading StateReport: {}", msg.getSourceName());
+        if (invalidSystem(msg.getSrc())) {
+            return;
+        }
 
         sendMessage(msg);
     }
 
     @Subscribe
-    public void onVerticalProfile(VerticalProfile profile) {
-        NeptusLog.pub().info("Reading VerticalProfile: {}", profile);
+    public void onVerticalProfile(VerticalProfile msg) {
+        if (invalidSystem(msg.getSrc())) {
+            return;
+        }
+
+        sendMessage(msg);
     }
 
     @Override
@@ -136,16 +154,24 @@ public class ServerInterface extends ConsolePanel {
 
 
         gbc.gridy = 1;
-        gbc.gridx = 0;
-        JButton getInstructionsButton = new JButton("Get Instructions");
-        getInstructionsButton.addActionListener(e -> {
-            StateReport stateReport = new StateReport();
-            sendMessage(stateReport);
-        });
+        JButton getInstructionsButton = new JButton("Add System");
+        getInstructionsButton.addActionListener(e -> promptToAddSystem());
         add(getInstructionsButton, gbc);
 
         gbc.gridy = 2;
-        gbc.gridx = 0;
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+
+        systemsListArea = new JTextArea();
+        systemsListArea.setEditable(false);
+        systemsListArea.setBorder(BorderFactory.createTitledBorder("Monitored Systems"));
+        updateSystemsListUI();
+
+        add(new JScrollPane(systemsListArea), gbc);
+
+        gbc.gridy = 3;
+        gbc.weighty = 0.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
         JButton stopButton = new JButton("Stop");
         stopButton.addActionListener(e -> {
@@ -156,6 +182,54 @@ public class ServerInterface extends ConsolePanel {
 
         revalidate();
         repaint();
+    }
+
+    private void promptToAddSystem() {
+
+        ImcSystem[] allSystems = ImcSystemsHolder.lookupAllSystems();
+        Arrays.sort(allSystems, Comparator.comparing(ImcSystem::getName));
+
+        Object selected = JOptionPane.showInputDialog(
+                this,
+                "Select a system to monitor:",
+                "Add System",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                allSystems,
+                allSystems.length > 0 ? allSystems[0] : null
+        );
+
+        if (!(selected instanceof ImcSystem)) {
+            return;
+        }
+
+        ImcSystem sys = (ImcSystem) selected;
+        int id = sys.getId().intValue();
+        String name = sys.getName();
+
+        systems.put(id, name);
+        NeptusLog.pub().info("Added System to monitor {} ({})", name, id);
+
+        // Refresh the UI list
+        updateSystemsListUI();
+    }
+
+    private void updateSystemsListUI() {
+        if (systemsListArea == null) {
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        if (systems.isEmpty()) {
+            sb.append("No systems added.");
+        }
+        else {
+            for (String name : systems.values()) {
+                sb.append("- ").append(name).append("\n");
+            }
+        }
+
+        systemsListArea.setText(sb.toString());
     }
 
     private void connectToServer(String serverIp, int serverPort) {
@@ -187,7 +261,7 @@ public class ServerInterface extends ConsolePanel {
 
     private void sendMessage(IMCMessage msg) {
         try {
-            NeptusLog.pub().info("Sending message: {}", msg);
+            NeptusLog.pub().debug("Sending message: {}", msg);
 
             client.send(msg);
         }
@@ -198,6 +272,20 @@ public class ServerInterface extends ConsolePanel {
 
     private void handleIncoming(IMCMessage msg, String remote) {
         NeptusLog.pub().info("Received message: {} from {}", msg.getAbbrev(), remote);
+
+        int id = msg.getDst();
+        if (invalidSystem(id)) {
+            NeptusLog.pub().warn("Invalid system ID destination: {}", id);
+            return;
+        }
+
+        String vehicleName = systems.get(id);
+        send(vehicleName, msg);
+
+        if (msg.getMgid() == PlanSpecification.ID_STATIC) {
+            getConsole().getImcMsgManager().broadcastToCCUs(msg);
+            NeptusLog.pub().info("Sharing plan: {}", msg);
+        }
     }
 
     public void serverDisconnected(String remote, Exception cause) {
@@ -210,6 +298,9 @@ public class ServerInterface extends ConsolePanel {
     public void cleanSubPanel() {
         NeptusLog.pub().warn("Closing connection form");
         client.close();
+
+        systems.clear();
+        initSubPanel();
     }
 }
 
