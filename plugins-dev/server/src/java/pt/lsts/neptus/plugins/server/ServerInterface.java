@@ -1,9 +1,11 @@
 package pt.lsts.neptus.plugins.server;
 
 import com.google.common.eventbus.Subscribe;
+import pt.lsts.imc.CoverArea;
 import pt.lsts.imc.IMCDefinition;
 import pt.lsts.imc.IMCMessage;
 import pt.lsts.imc.PlanSpecification;
+import pt.lsts.imc.PolygonVertex;
 import pt.lsts.imc.StateReport;
 import pt.lsts.imc.VerticalProfile;
 import pt.lsts.neptus.NeptusLog;
@@ -11,14 +13,21 @@ import pt.lsts.neptus.comm.manager.imc.ImcSystem;
 import pt.lsts.neptus.comm.manager.imc.ImcSystemsHolder;
 import pt.lsts.neptus.console.ConsoleLayout;
 import pt.lsts.neptus.console.ConsolePanel;
+import pt.lsts.neptus.mp.MapChangeEvent;
 import pt.lsts.neptus.plugins.PluginDescription;
 import pt.lsts.neptus.plugins.Popup;
+import pt.lsts.neptus.types.coord.LocationType;
+import pt.lsts.neptus.types.map.MapGroup;
+import pt.lsts.neptus.types.map.MapType;
+import pt.lsts.neptus.types.map.PathElement;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -29,15 +38,15 @@ import java.util.Map;
 public class ServerInterface extends ConsolePanel {
 
     private final ImcTcpClient client = new ImcTcpClient(IMCDefinition.getInstance());
+    private final List<LocationType> op_area = new ArrayList<>();
+    private final Map<Integer, String> systems = new HashMap<>();
     private JTextArea statusLabel;
     private JTextArea systemsListArea;
     private JTextField ipField;
     private JTextField portField;
-
     private String lastHost = "10.147.20.10";
     private int lastPort = 6005;
-
-    private Map<Integer, String> systems = new HashMap<>();
+    private PathElement map_area;
 
     public ServerInterface(ConsoleLayout console) {
         super(console);
@@ -67,12 +76,74 @@ public class ServerInterface extends ConsolePanel {
 
     @Override
     public void initSubPanel() {
-        removeAll();
         showConnectionForm();
-        revalidate();
-        repaint();
+    }
 
-        getConsole().getImcMsgManager().addListener(this);
+    private void setOperationalArea(CoverArea area) {
+
+        if (!op_area.isEmpty()) {
+            op_area.clear();
+        }
+
+        double lat = Math.toDegrees(area.getLat());
+        double lon = Math.toDegrees(area.getLon());
+        op_area.add(new LocationType(lat, lon));
+
+        NeptusLog.pub().error("setOperationalArea {}, {}", lat, lon);
+
+        for (PolygonVertex vertex : area.getPolygon()) {
+            lat = Math.toDegrees(vertex.getLat());
+            lon = Math.toDegrees(vertex.getLon());
+
+            op_area.add(new LocationType(lat, lon));
+            NeptusLog.pub().error("New point - {}, {}", lat, lon);
+        }
+
+        addMapElement();
+    }
+
+    public void addMapElement() {
+
+        MapGroup mg = MapGroup.getMapGroupInstance(getConsole().getMission());
+
+        MapType map = mg.getMaps()[0];
+        NeptusLog.pub().error("Map list size: {}", mg.getMaps().length);
+
+        if (map_area != null) {
+            NeptusLog.pub().error("Operational area already exists!");
+            map_area = null;
+
+            sendMapEvent(map, MapChangeEvent.OBJECT_REMOVED);
+        }
+
+        LocationType first = op_area.get(0);
+        map_area = new PathElement(mg, map, first);
+
+        NeptusLog.pub().error("Added first point: {}, {}", first.getLatitudeDegs(), first.getLongitudeDegs());
+        map_area.setFilled(true);
+        map_area.setShape(true);
+        map_area.setId("Operational Area");
+        map_area.addPoint(0, 0, 0, false);
+        map.addObject(map_area);
+
+        sendMapEvent(map, MapChangeEvent.OBJECT_ADDED);
+
+        for (int idx = 1; idx < op_area.size(); idx++) {
+
+            LocationType point = op_area.get(idx);
+            map_area.addPoint(point);
+
+            NeptusLog.pub().error("New point: {} {}", point.getLatitudeDegs(), point.getLongitudeDegs());
+
+            sendMapEvent(map, MapChangeEvent.OBJECT_CHANGED);
+        }
+    }
+
+    private void sendMapEvent(MapType map, int eventType) {
+        MapChangeEvent changeEvent = new MapChangeEvent(eventType);
+        changeEvent.setChangedObject(map_area);
+        changeEvent.setSourceMap(map);
+        map.warnChangeListeners(changeEvent);
     }
 
     /**
@@ -272,6 +343,16 @@ public class ServerInterface extends ConsolePanel {
 
     private void handleIncoming(IMCMessage msg, String remote) {
         NeptusLog.pub().info("Received message: {} from {}", msg.getAbbrev(), remote);
+
+        if (msg.getMgid() == CoverArea.ID_STATIC) {
+            try {
+                setOperationalArea(CoverArea.clone(msg));
+            }
+            catch (Exception e) {
+                NeptusLog.pub().error("Failed to clone cover area: {}", e.getMessage());
+            }
+            return;
+        }
 
         int id = msg.getDst();
         if (invalidSystem(id)) {
