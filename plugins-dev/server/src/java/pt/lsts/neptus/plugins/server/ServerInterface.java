@@ -89,14 +89,14 @@ public class ServerInterface extends ConsolePanel {
         double lon = Math.toDegrees(area.getLon());
         op_area.add(new LocationType(lat, lon));
 
-        NeptusLog.pub().error("setOperationalArea {}, {}", lat, lon);
+        NeptusLog.pub().debug("setOperationalArea {}, {}", lat, lon);
 
         for (PolygonVertex vertex : area.getPolygon()) {
             lat = Math.toDegrees(vertex.getLat());
             lon = Math.toDegrees(vertex.getLon());
 
             op_area.add(new LocationType(lat, lon));
-            NeptusLog.pub().error("New point - {}, {}", lat, lon);
+            NeptusLog.pub().debug("New point - {}, {}", lat, lon);
         }
 
         addMapElement();
