@@ -6,6 +6,7 @@ import pt.lsts.imc.IMCDefinition;
 import pt.lsts.imc.IMCMessage;
 import pt.lsts.imc.PlanSpecification;
 import pt.lsts.imc.PolygonVertex;
+import pt.lsts.imc.SoiCommand;
 import pt.lsts.imc.StateReport;
 import pt.lsts.imc.VerticalProfile;
 import pt.lsts.neptus.NeptusLog;
@@ -13,6 +14,8 @@ import pt.lsts.neptus.comm.manager.imc.ImcSystem;
 import pt.lsts.neptus.comm.manager.imc.ImcSystemsHolder;
 import pt.lsts.neptus.console.ConsoleLayout;
 import pt.lsts.neptus.console.ConsolePanel;
+import pt.lsts.neptus.endurance.AssetsManager;
+import pt.lsts.neptus.endurance.Plan;
 import pt.lsts.neptus.mp.MapChangeEvent;
 import pt.lsts.neptus.plugins.PluginDescription;
 import pt.lsts.neptus.plugins.Popup;
@@ -54,6 +57,15 @@ public class ServerInterface extends ConsolePanel {
 
     private boolean invalidSystem(int src) {
         return !systems.containsKey(src);
+    }
+
+    @Subscribe
+    public void onSoiCommand(SoiCommand msg) {
+        if (invalidSystem(msg.getSrc())) {
+            return;
+        }
+
+        sendMessage(msg);
     }
 
     @Subscribe
@@ -363,9 +375,32 @@ public class ServerInterface extends ConsolePanel {
         String vehicleName = systems.get(id);
         send(vehicleName, msg);
 
-        if (msg.getMgid() == PlanSpecification.ID_STATIC) {
-            getConsole().getImcMsgManager().broadcastToCCUs(msg);
-            NeptusLog.pub().info("Sharing plan: {}", msg);
+        if (msg.getMgid() != PlanSpecification.ID_STATIC) {
+            return;
+
+        }
+
+        getConsole().getImcMsgManager().broadcastToCCUs(msg);
+        NeptusLog.pub().info("Sharing plan: {}", msg);
+
+        try {
+            SoiCommand cmd = new SoiCommand();
+            cmd.setType(SoiCommand.TYPE.REQUEST);
+            cmd.setCommand(SoiCommand.COMMAND.RESUME);
+            send(vehicleName, cmd);
+
+            PlanSpecification psec = new PlanSpecification(msg);
+            Plan plan = Plan.parse(psec);
+            cmd = new SoiCommand();
+            cmd.setType(SoiCommand.TYPE.REQUEST);
+            cmd.setCommand(SoiCommand.COMMAND.EXEC);
+            cmd.setPlan(plan.asImc());
+            send(vehicleName, cmd);
+
+            AssetsManager.getInstance().getPlans().put(vehicleName, plan);
+        }
+        catch (Exception e) {
+            NeptusLog.pub().warn("Failed to process SOI: {}", e.getMessage());
         }
     }
 
