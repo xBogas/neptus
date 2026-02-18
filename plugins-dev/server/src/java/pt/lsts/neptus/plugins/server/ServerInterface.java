@@ -107,10 +107,10 @@ public class ServerInterface extends ConsolePanel {
         MapGroup mg = MapGroup.getMapGroupInstance(getConsole().getMission());
 
         MapType map = mg.getMaps()[0];
-        NeptusLog.pub().error("Map list size: {}", mg.getMaps().length);
+        NeptusLog.pub().debug("Map list size: {}", mg.getMaps().length);
 
         if (map_area != null) {
-            NeptusLog.pub().error("Operational area already exists!");
+            NeptusLog.pub().warn("Operational area already exists!");
             map_area = null;
 
             sendMapEvent(map, MapChangeEvent.OBJECT_REMOVED);
@@ -119,7 +119,7 @@ public class ServerInterface extends ConsolePanel {
         LocationType first = op_area.get(0);
         map_area = new PathElement(mg, map, first);
 
-        NeptusLog.pub().error("Added first point: {}, {}", first.getLatitudeDegs(), first.getLongitudeDegs());
+        NeptusLog.pub().info("Added first point: {}, {}", first.getLatitudeDegs(), first.getLongitudeDegs());
         map_area.setFilled(true);
         map_area.setShape(true);
         map_area.setId("Operational Area");
@@ -133,7 +133,7 @@ public class ServerInterface extends ConsolePanel {
             LocationType point = op_area.get(idx);
             map_area.addPoint(point);
 
-            NeptusLog.pub().error("New point: {} {}", point.getLatitudeDegs(), point.getLongitudeDegs());
+            NeptusLog.pub().info("New point: {} {}", point.getLatitudeDegs(), point.getLongitudeDegs());
 
             sendMapEvent(map, MapChangeEvent.OBJECT_CHANGED);
         }
@@ -349,7 +349,7 @@ public class ServerInterface extends ConsolePanel {
                 setOperationalArea(CoverArea.clone(msg));
             }
             catch (Exception e) {
-                NeptusLog.pub().error("Failed to clone cover area: {}", e.getMessage());
+                NeptusLog.pub().error("Failed to set operational area: {}", e.getMessage());
             }
             return;
         }
