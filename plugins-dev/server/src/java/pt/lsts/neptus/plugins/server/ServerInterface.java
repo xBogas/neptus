@@ -43,7 +43,7 @@ public class ServerInterface extends ConsolePanel {
 
     private final ImcTcpClient client = new ImcTcpClient(IMCDefinition.getInstance());
     private final List<LocationType> op_area = new ArrayList<>();
-    private final Map<Integer, String> systems = new HashMap<>();
+    private final Map<Integer, SystemInfo> systems = new HashMap<>();
     private JTextArea statusLabel;
     private JTextArea systemsListArea;
     private JTextField ipField;
@@ -295,7 +295,7 @@ public class ServerInterface extends ConsolePanel {
         int id = sys.getId().intValue();
         String name = sys.getName();
 
-        systems.put(id, name);
+        systems.put(id, new SystemInfo(name, false));
         NeptusLog.pub().info("Added System to monitor {} ({})", name, id);
 
         // Refresh the UI list
@@ -312,8 +312,8 @@ public class ServerInterface extends ConsolePanel {
             sb.append("No systems added.");
         }
         else {
-            for (String name : systems.values()) {
-                sb.append("- ").append(name).append("\n");
+            for (SystemInfo vec : systems.values()) {
+                sb.append("- ").append(vec.getName()).append("\n");
             }
         }
 
@@ -377,8 +377,8 @@ public class ServerInterface extends ConsolePanel {
             return;
         }
 
-        String vehicleName = systems.get(id);
-        send(vehicleName, msg);
+        SystemInfo sys = systems.get(id);
+        send(sys.getName(), msg);
 
         if (msg.getMgid() != PlanSpecification.ID_STATIC) {
             return;
@@ -386,13 +386,16 @@ public class ServerInterface extends ConsolePanel {
         }
 
         getConsole().getImcMsgManager().broadcastToCCUs(msg);
-        NeptusLog.pub().info("Sharing plan: {}", msg);
+        getConsole().getImcMsgManager().postInternalMessage("Plugin-Server", msg);
+        NeptusLog.pub().debug("Sharing plan: {}", msg);
 
         try {
             SoiCommand cmd = new SoiCommand();
-            cmd.setType(SoiCommand.TYPE.REQUEST);
-            cmd.setCommand(SoiCommand.COMMAND.RESUME);
-            send(vehicleName, cmd);
+            if (!sys.isActive()) {
+                cmd.setType(SoiCommand.TYPE.REQUEST);
+                cmd.setCommand(SoiCommand.COMMAND.RESUME);
+                send(sys.getName(), cmd);
+            }
 
             PlanSpecification psec = new PlanSpecification(msg);
             Plan plan = Plan.parse(psec);
@@ -400,9 +403,9 @@ public class ServerInterface extends ConsolePanel {
             cmd.setType(SoiCommand.TYPE.REQUEST);
             cmd.setCommand(SoiCommand.COMMAND.EXEC);
             cmd.setPlan(plan.asImc());
-            send(vehicleName, cmd);
+            send(sys.getName(), cmd);
 
-            AssetsManager.getInstance().getPlans().put(vehicleName, plan);
+            AssetsManager.getInstance().getPlans().put(sys.getName(), plan);
         }
         catch (Exception e) {
             NeptusLog.pub().warn("Failed to process SOI: {}", e.getMessage());
