@@ -64,8 +64,15 @@ public class ServerInterface extends ConsolePanel {
 
     @Subscribe
     public void onSoiCommand(SoiCommand msg) {
-        if (invalidSystem(msg.getSrc())) {
+
+        int id = msg.getSrc();
+        if (invalidSystem(id)) {
             return;
+        }
+
+        SystemInfo info = systems.get(id);
+        if (msg.getCommand() == SoiCommand.COMMAND.RESUME && msg.getType() == SoiCommand.TYPE.SUCCESS) {
+            info.setState(true);
         }
 
         sendMessage(msg);
