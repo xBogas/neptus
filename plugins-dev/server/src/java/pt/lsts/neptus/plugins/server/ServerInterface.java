@@ -32,6 +32,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author João Bogas
@@ -270,7 +271,11 @@ public class ServerInterface extends ConsolePanel {
     private void promptToAddSystem() {
 
         ImcSystem[] allSystems = ImcSystemsHolder.lookupAllSystems();
-        Arrays.sort(allSystems, Comparator.comparing(ImcSystem::getName));
+
+        List<ImcSystem> availableSystems = Arrays.stream(allSystems)
+                .filter(sys -> !systems.containsKey(sys.getId().intValue()))
+                .sorted(Comparator.comparing(ImcSystem::getName))
+                .collect(Collectors.toList());
 
         Object selected = JOptionPane.showInputDialog(
                 this,
@@ -278,8 +283,8 @@ public class ServerInterface extends ConsolePanel {
                 "Add System",
                 JOptionPane.QUESTION_MESSAGE,
                 null,
-                allSystems,
-                allSystems.length > 0 ? allSystems[0] : null
+                availableSystems.toArray(),
+                !availableSystems.isEmpty() ? availableSystems.get(0) : null
         );
 
         if (!(selected instanceof ImcSystem)) {
