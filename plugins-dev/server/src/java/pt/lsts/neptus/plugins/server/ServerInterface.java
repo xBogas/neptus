@@ -14,6 +14,7 @@ import pt.lsts.neptus.comm.manager.imc.ImcSystem;
 import pt.lsts.neptus.comm.manager.imc.ImcSystemsHolder;
 import pt.lsts.neptus.console.ConsoleLayout;
 import pt.lsts.neptus.console.ConsolePanel;
+import pt.lsts.neptus.console.notifications.Notification;
 import pt.lsts.neptus.endurance.AssetsManager;
 import pt.lsts.neptus.endurance.Plan;
 import pt.lsts.neptus.mp.MapChangeEvent;
@@ -26,6 +27,7 @@ import pt.lsts.neptus.types.map.PathElement;
 
 import javax.swing.*;
 import java.awt.*;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -298,8 +300,30 @@ public class ServerInterface extends ConsolePanel {
         systems.put(id, new SystemInfo(name, false));
         NeptusLog.pub().info("Added System to monitor {} ({})", name, id);
 
-        // Refresh the UI list
+        // Refresh the UI
         updateSystemsListUI();
+
+        LocationType sys_loc = sys.getLocation();
+        long sys_ts = sys.getLocationTimeMillis();
+        long cur_time = System.currentTimeMillis();
+
+        Duration delta = Duration.ofMillis(Math.abs(cur_time - sys_ts));
+
+        if (delta.getSeconds() > 60) {
+
+            String result = String.format("System location expired by %s secs. Will wait for a new one", delta.getSeconds());
+
+            getConsole().post(Notification.warning("Title?", result));
+            return;
+        }
+
+        // Simulate a StateReport to notify listeners
+        StateReport sr = new StateReport();
+        sr.setSrc(id);
+        sr.setStime(sys_ts);
+        sr.setLatitude(sys_loc.getLatitudeDegs());
+        sr.setLongitude(sys_loc.getLongitudeDegs());
+        sendMessage(sr);
     }
 
     private void updateSystemsListUI() {
