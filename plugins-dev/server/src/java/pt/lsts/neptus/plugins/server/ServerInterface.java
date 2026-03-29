@@ -26,6 +26,7 @@ import pt.lsts.neptus.types.coord.LocationType;
 import pt.lsts.neptus.types.map.MapGroup;
 import pt.lsts.neptus.types.map.MapType;
 import pt.lsts.neptus.types.map.PathElement;
+import pt.lsts.neptus.types.vehicle.VehiclesHolder;
 
 import javax.swing.*;
 import java.awt.*;
@@ -289,9 +290,11 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
     private void promptToAddSystem() {
 
         ImcSystem[] allSystems = ImcSystemsHolder.lookupAllSystems();
+        List<String> allVehicles = Arrays.asList(VehiclesHolder.getVehiclesArray());
 
         List<ImcSystem> availableSystems = Arrays.stream(allSystems)
                 .filter(sys -> !systems.containsKey(sys.getId().intValue()))
+                .filter(sys -> allVehicles.contains(sys.getName()))
                 .sorted(Comparator.comparing(ImcSystem::getName))
                 .collect(Collectors.toList());
 
