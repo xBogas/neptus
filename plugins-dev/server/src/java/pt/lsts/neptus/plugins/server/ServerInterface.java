@@ -18,6 +18,8 @@ import pt.lsts.neptus.console.notifications.Notification;
 import pt.lsts.neptus.endurance.AssetsManager;
 import pt.lsts.neptus.endurance.Plan;
 import pt.lsts.neptus.mp.MapChangeEvent;
+import pt.lsts.neptus.plugins.ConfigurationListener;
+import pt.lsts.neptus.plugins.NeptusProperty;
 import pt.lsts.neptus.plugins.PluginDescription;
 import pt.lsts.neptus.plugins.Popup;
 import pt.lsts.neptus.types.coord.LocationType;
@@ -41,7 +43,12 @@ import java.util.stream.Collectors;
  */
 @PluginDescription(name = "Server Interface")
 @Popup(pos = Popup.POSITION.CENTER, width = 250, height = 250, accelerator = 'Y')
-public class ServerInterface extends ConsolePanel {
+public class ServerInterface extends ConsolePanel implements ConfigurationListener {
+
+    @NeptusProperty(name = "Host IP", userLevel = NeptusProperty.LEVEL.REGULAR, description = "IP address of the remote server to connect to.")
+    private String lastHost = "127.0.0.1";
+    @NeptusProperty(name = "Port", userLevel = NeptusProperty.LEVEL.REGULAR, description = "TCP port of the remote server to connect to.")
+    private int lastPort = 6005;
 
     private final ImcTcpClient client = new ImcTcpClient(IMCDefinition.getInstance());
     private final List<LocationType> op_area = new ArrayList<>();
@@ -50,8 +57,6 @@ public class ServerInterface extends ConsolePanel {
     private JTextArea systemsListArea;
     private JTextField ipField;
     private JTextField portField;
-    private String lastHost = "10.147.20.10";
-    private int lastPort = 6005;
     private PathElement map_area;
 
     public ServerInterface(ConsoleLayout console) {
@@ -60,6 +65,10 @@ public class ServerInterface extends ConsolePanel {
 
     private boolean invalidSystem(int src) {
         return !systems.containsKey(src);
+    }
+
+    public void propertiesChanged() {
+
     }
 
     @Subscribe
