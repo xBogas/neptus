@@ -50,10 +50,13 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
     private String lastHost = "127.0.0.1";
     @NeptusProperty(name = "Port", userLevel = NeptusProperty.LEVEL.REGULAR, description = "TCP port of the remote server to connect to.")
     private int lastPort = 6005;
+    @NeptusProperty(name = "Profile CSV Path", userLevel = NeptusProperty.LEVEL.REGULAR, description = "File path for logging incoming VerticalProfile messages.")
+    private String profileCsvPath = "log/vertical_profiles.csv";
 
     private final ImcTcpClient client = new ImcTcpClient(IMCDefinition.getInstance());
     private final List<LocationType> op_area = new ArrayList<>();
     private final Map<Integer, SystemInfo> systems = new HashMap<>();
+    private final ProfileCsvLogger profileLogger;
     private JTextArea statusLabel;
     private JTextArea systemsListArea;
     private JTextField ipField;
@@ -62,6 +65,7 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
 
     public ServerInterface(ConsoleLayout console) {
         super(console);
+        profileLogger = new ProfileCsvLogger(profileCsvPath);
     }
 
     private boolean invalidSystem(int src) {
@@ -69,7 +73,7 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
     }
 
     public void propertiesChanged() {
-
+        profileLogger.setCsvPath(profileCsvPath);
     }
 
     @Subscribe
@@ -99,6 +103,7 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
 
     @Subscribe
     public void onVerticalProfile(VerticalProfile msg) {
+        profileLogger.log(msg);
         if (invalidSystem(msg.getSrc())) {
             return;
         }
