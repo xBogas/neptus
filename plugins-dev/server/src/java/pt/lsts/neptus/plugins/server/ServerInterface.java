@@ -438,16 +438,9 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
         NeptusLog.pub().debug("Sharing plan: {}", msg);
 
         try {
-            SoiCommand cmd = new SoiCommand();
-            if (!sys.isActive()) {
-                cmd.setType(SoiCommand.TYPE.REQUEST);
-                cmd.setCommand(SoiCommand.COMMAND.RESUME);
-                send(sys.getName(), cmd);
-            }
-
             PlanSpecification psec = new PlanSpecification(msg);
             Plan plan = Plan.parse(psec);
-            cmd = new SoiCommand();
+            SoiCommand cmd = new SoiCommand();
             cmd.setType(SoiCommand.TYPE.REQUEST);
             cmd.setCommand(SoiCommand.COMMAND.EXEC);
             cmd.setPlan(plan.asImc());
@@ -462,7 +455,7 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
 
     public void serverDisconnected(String remote, Exception cause) {
         NeptusLog.pub().debug("Disconnected from {}: {}", remote, cause.getMessage());
-
+        systems.clear();
         SwingUtilities.invokeLater(this::showConnectionForm);
     }
 
