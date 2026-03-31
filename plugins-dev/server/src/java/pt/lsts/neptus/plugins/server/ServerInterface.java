@@ -156,10 +156,11 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
         LocationType first = op_area.get(0);
         map_area = new PathElement(mg, map, first);
 
-        NeptusLog.pub().info("Added first point: {}, {}", first.getLatitudeDegs(), first.getLongitudeDegs());
+        NeptusLog.pub().debug("Added first point: {}, {}", first.getLatitudeDegs(), first.getLongitudeDegs());
         map_area.setFilled(true);
         map_area.setShape(true);
-        map_area.setId("Operational Area");
+        map_area.setId("Operational_Area");
+        map_area.setMyColor(new Color(255, 255, 0, 128));
         map_area.addPoint(0, 0, 0, false);
         map.addObject(map_area);
 
@@ -170,7 +171,7 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
             LocationType point = op_area.get(idx);
             map_area.addPoint(point);
 
-            NeptusLog.pub().info("New point: {} {}", point.getLatitudeDegs(), point.getLongitudeDegs());
+            NeptusLog.pub().debug("New point: {} {}", point.getLatitudeDegs(), point.getLongitudeDegs());
 
             sendMapEvent(map, MapChangeEvent.OBJECT_CHANGED);
         }
@@ -322,7 +323,7 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
         String name = sys.getName();
 
         systems.put(id, new SystemInfo(name, false));
-        NeptusLog.pub().info("Added System to monitor {} ({})", name, id);
+        NeptusLog.pub().debug("Added System to monitor {} ({})", name, id);
 
         // Refresh the UI
         updateSystemsListUI();
@@ -407,7 +408,7 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
     }
 
     private void handleIncoming(IMCMessage msg, String remote) {
-        NeptusLog.pub().info("Received message: {} from {}", msg.getAbbrev(), remote);
+        NeptusLog.pub().trace("Received message: {} from {}", msg.getAbbrev(), remote);
 
         if (msg.getMgid() == CoverArea.ID_STATIC) {
             try {
@@ -430,7 +431,6 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
 
         if (msg.getMgid() != PlanSpecification.ID_STATIC) {
             return;
-
         }
 
         getConsole().getImcMsgManager().broadcastToCCUs(msg);
@@ -469,6 +469,7 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
     @Override
     public void cleanSubPanel() {
         NeptusLog.pub().warn("Closing connection form");
+        profileLogger.close();
         client.close();
 
         systems.clear();
