@@ -1,4 +1,4 @@
 dependencies {
     // ... existing dependencies ...
-    implementation project(':soi')
+    compileOnly project(':soi')
 }
