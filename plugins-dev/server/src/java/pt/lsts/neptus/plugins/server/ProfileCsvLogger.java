@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.TimeZone;
 import java.util.Vector;
 
@@ -27,6 +28,19 @@ public class ProfileCsvLogger {
     private String csvPath;
 
     public ProfileCsvLogger(String csvPath) {
+
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
+        String nowStr = dateFormat.format(new Date());
+        if (csvPath == null) {
+            csvPath = "profiles_" + nowStr + ".csv";
+        }
+        else if (!csvPath.endsWith(".csv")) {
+            csvPath += "_" + nowStr + ".csv";
+        }
+        else {
+            csvPath = csvPath.replace(".csv", "_" + nowStr + ".csv");
+        }
+
         this.csvPath = csvPath;
         this.utcDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
         this.utcDateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
