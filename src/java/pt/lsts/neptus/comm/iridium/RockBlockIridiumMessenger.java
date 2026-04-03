@@ -75,8 +75,10 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.message.BasicNameValuePair;
 
+import pt.lsts.imc.IridiumMsgRx;
 import pt.lsts.neptus.NeptusLog;
 import pt.lsts.neptus.comm.manager.imc.ImcId16;
+import pt.lsts.neptus.comm.manager.imc.ImcMsgManager;
 import pt.lsts.neptus.data.Pair;
 import pt.lsts.neptus.plugins.NeptusProperty;
 import pt.lsts.neptus.plugins.PluginUtils;
@@ -234,6 +236,15 @@ public class RockBlockIridiumMessenger implements IridiumMessenger {
 
         if (askCredentials())
             return;
+
+        if (rockBlockUsername.equals("simulator")) {
+            IridiumMsgRx imcMsg = new IridiumMsgRx();
+            imcMsg.setSrc(msg.destination);
+            imcMsg.setDst(msg.destination);
+            imcMsg.setData(msg.serialize());
+            ImcMsgManager.getManager().sendMessageToSystem(imcMsg, vt.getName());
+            return;
+        }
 
         String destImei = getImeiToUse(args);
         String result = sendToRockBlockHttp(destImei, getRockBlockUsername(), getRockBlockPassword(),
