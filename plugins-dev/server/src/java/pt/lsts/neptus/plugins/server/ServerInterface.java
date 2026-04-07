@@ -15,8 +15,6 @@ import pt.lsts.neptus.comm.manager.imc.ImcSystemsHolder;
 import pt.lsts.neptus.console.ConsoleLayout;
 import pt.lsts.neptus.console.ConsolePanel;
 import pt.lsts.neptus.console.notifications.Notification;
-import pt.lsts.neptus.endurance.AssetsManager;
-import pt.lsts.neptus.endurance.Plan;
 import pt.lsts.neptus.mp.MapChangeEvent;
 import pt.lsts.neptus.plugins.ConfigurationListener;
 import pt.lsts.neptus.plugins.NeptusProperty;
@@ -436,21 +434,6 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
         getConsole().getImcMsgManager().broadcastToCCUs(msg);
         getConsole().getImcMsgManager().postInternalMessage("Plugin-Server", msg);
         NeptusLog.pub().debug("Sharing plan: {}", msg);
-
-        try {
-            PlanSpecification psec = new PlanSpecification(msg);
-            Plan plan = Plan.parse(psec);
-            SoiCommand cmd = new SoiCommand();
-            cmd.setType(SoiCommand.TYPE.REQUEST);
-            cmd.setCommand(SoiCommand.COMMAND.EXEC);
-            cmd.setPlan(plan.asImc());
-            send(sys.getName(), cmd);
-
-            AssetsManager.getInstance().getPlans().put(sys.getName(), plan);
-        }
-        catch (Exception e) {
-            NeptusLog.pub().warn("Failed to process SOI: {}", e.getMessage());
-        }
     }
 
     public void serverDisconnected(String remote, Exception cause) {
