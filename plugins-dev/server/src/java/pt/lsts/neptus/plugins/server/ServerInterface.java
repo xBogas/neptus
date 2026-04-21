@@ -25,6 +25,8 @@ import pt.lsts.neptus.types.map.MapGroup;
 import pt.lsts.neptus.types.map.MapType;
 import pt.lsts.neptus.types.map.PathElement;
 import pt.lsts.neptus.types.vehicle.VehiclesHolder;
+import pt.lsts.neptus.comm.IMCUtils;
+import pt.lsts.neptus.types.mission.plan.PlanType;
 
 import javax.swing.*;
 import java.awt.*;
@@ -60,6 +62,9 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
     private JTextField ipField;
     private JTextField portField;
     private PathElement map_area;
+
+    private static final int WARN_LEVEL = 1;
+    private static final int ERROR_LEVEL = 2;
 
     public ServerInterface(ConsoleLayout console) {
         super(console);
@@ -447,6 +452,12 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
         if (msg.getMgid() != PlanSpecification.ID_STATIC) {
             return;
         }
+
+        PlanType pt = IMCUtils.parsePlanSpecification(getConsole().getMission(), msg);
+
+        getConsole().getMission().addPlan(pt);
+        getConsole().getMission().save(true);
+        getConsole().warnMissionListeners();
 
         getConsole().getImcMsgManager().broadcastToCCUs(msg);
         getConsole().getImcMsgManager().postInternalMessage("Plugin-Server", msg);
