@@ -109,6 +109,23 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
         sendMessage(msg);
     }
 
+    void
+    notify(String _title, String message, int level) {
+
+        switch (level) {
+            case WARN_LEVEL:
+                getConsole().post(Notification.warning(_title, message));
+                break;
+            case ERROR_LEVEL:
+                getConsole().post(Notification.error(_title, message));
+                break;
+            default:
+                getConsole().post(Notification.info(_title, message));
+                break;
+        }
+    }
+
+
     @Override
     public void initSubPanel() {
         showConnectionForm();
@@ -434,6 +451,7 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
         getConsole().getImcMsgManager().broadcastToCCUs(msg);
         getConsole().getImcMsgManager().postInternalMessage("Plugin-Server", msg);
         NeptusLog.pub().debug("Sharing plan: {}", msg);
+        notify("SOI-DOURO", "New plan for " + sys.getName() + " received!", WARN_LEVEL);
     }
 
     public void serverDisconnected(String remote, Exception cause) {
