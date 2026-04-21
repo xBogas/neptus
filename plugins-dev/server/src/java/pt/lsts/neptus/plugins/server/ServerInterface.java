@@ -27,6 +27,7 @@ import pt.lsts.neptus.types.map.PathElement;
 import pt.lsts.neptus.types.vehicle.VehiclesHolder;
 import pt.lsts.neptus.comm.IMCUtils;
 import pt.lsts.neptus.types.mission.plan.PlanType;
+import pt.lsts.neptus.util.speech.SpeechUtil;
 
 import javax.swing.*;
 import java.awt.*;
@@ -463,6 +464,11 @@ public class ServerInterface extends ConsolePanel implements ConfigurationListen
         getConsole().getImcMsgManager().postInternalMessage("Plugin-Server", msg);
         NeptusLog.pub().debug("Sharing plan: {}", msg);
         notify("SOI-DOURO", "New plan for " + sys.getName() + " received!", WARN_LEVEL);
+
+        String say = "New plan for " + sys.getName() + " received!";
+        SpeechUtil.removeStringsFromQueue(say);
+        SpeechUtil.readSimpleText(say);
+
     }
 
     public void serverDisconnected(String remote, Exception cause) {
